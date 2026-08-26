@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: |
+  WeatherWrite — static website + scheduled generator Lambda.
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 30
+
+Resources:
+  WebsiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebsiteBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub '${WebsiteBucket.Arn}/*'
+
+  WeatherWriteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: weatherwrite-generator
+      CodeUri: lambda/
+      Handler: generator.handler
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref WebsiteBucket
+      Events:
+        ScheduledEvent:
+          Type: Schedule
+          Properties:
+            Schedule: rate(6 hours)
+
+Outputs:
+  WebsiteBucketName:
+    Description: S3 bucket hosting the static site
+    Value: !Ref WebsiteBucket
+  WebsiteURL:
+    Description: S3 website endpoint
+    Value: !Sub 'http://${WebsiteBucket}.s3-website-${AWS::Region}.amazonaws.com/'

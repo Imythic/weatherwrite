@@ -1,197 +1,56 @@
-# 💧 Access Rain Nexus — Rainwater Harvesting Prospecting Engine
+# WeatherWrite — Daily Rain Muse
 
-A hackathon-ready automated prospecting dashboard for identifying high-value commercial buildings for rainwater harvesting systems across the continental US.
+WeatherWrite is a minimal always-on creative agent built for the Weekend Creative Agent Challenge. A scheduled AWS Lambda generates a short daily creative brief (copy + image direction + poem) and publishes it as `brief.json`, which a tiny static frontend reads and renders.
 
----
+## Architecture
 
-## 🏗️ Stack
+- **Lambda** (`lambda/generator.py`) generates the brief and writes `brief.json` — to S3 in production, or to `frontend/brief.json` locally.
+- **S3 static website** serves the frontend and the generated `brief.json`.
+- **EventBridge** triggers the Lambda on a schedule (every 6 hours).
+- Optional **Bedrock** integration: set `USE_BEDROCK=1` and `BEDROCK_MODEL=<modelId>` in the Lambda environment to enrich briefs via Bedrock.
 
-| Layer       | Technology        | Port  |
-|-------------|-------------------|-------|
-| Frontend    | HTML + CSS + JS   | 3000  |
-| Backend API | Python + FastAPI  | 8000  |
-| Logistics   | Go                | 8001  |
+## Quickstart (local preview, no AWS required)
 
----
-
-## 🚀 Quick Start
-
-### macOS/Linux
+1. Seed the static frontend locally:
 
 ```bash
-chmod +x start.sh
-./start.sh
+python -c "import sys,json; sys.path.insert(0, 'lambda'); import generator; generator.handler({'local': True}, None)"
 ```
 
-### Windows
-
-If using Git Bash, WSL, or similar:
-
-```bash
-chmod +x start.sh
-./start.sh
-```
-
-Alternatively, run the services manually as described in Manual Setup below.
-
-Then open: **http://localhost:3000**
-
----
-
-## 🔧 Manual Setup
-
-### 1. Python Backend
-
-#### macOS/Linux
-
-```bash
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-#### Windows
-
-```bash
-cd backend
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-API docs available at: http://localhost:8000/docs
-
-### 2. Go Logistics Service
-
-```bash
-cd logistics
-go run main.go
-```
-
-Requires Go 1.21+. Download from https://go.dev/dl/
-
-### 3. Frontend
-
-#### macOS/Linux
+2. Serve the frontend locally:
 
 ```bash
 cd frontend
-python3 -m http.server 3000
+python -m http.server 8000
+# open http://localhost:8000
 ```
 
-#### Windows
+## Deploy to AWS (full provisioning)
+
+Requirements: AWS CLI configured with credentials that can create S3, Lambda, IAM, and EventBridge resources.
+
+1. Edit `deploy.sh` (or `deploy.ps1` on Windows) and set `BUCKET_NAME` to a globally unique name, and `REGION` (defaults to `us-east-1`).
+2. Run:
 
 ```bash
-cd frontend
-python -m http.server 3000
+chmod +x deploy.sh
+./deploy.sh
 ```
 
-Open: http://localhost:3000
+`deploy.sh` defaults to local seeding (`LOCAL_SEED=1`), so running it without AWS credentials only seeds the frontend. Set `LOCAL_SEED=0` in the script to perform full provisioning.
 
----
+The script creates an S3 website bucket, an IAM role for Lambda, the Lambda function itself, and an EventBridge schedule. After deployment it prints the S3 website URL.
 
-## 📡 API Endpoints
+Alternative deployment path via CloudFormation/SAM (no SAM CLI required) is documented in `README_DEPLOY.md`.
 
-| Method | Endpoint                    | Description                    |
-|--------|-----------------------------|--------------------------------|
-| GET    | `/buildings`                | All buildings (filterable)     |
-| GET    | `/buildings/:id`            | Single building detail         |
-| GET    | `/top-buildings`            | Top 10 by viability            |
-| GET    | `/metrics`                  | Dashboard metrics + state rank |
-| GET    | `/states`                   | Available state codes          |
+## Files of interest
 
-### Filter params for `/buildings`:
-- `state=TX`
-- `min_viability_score=70`
-- `min_roof_size=100000`
-- `cooling_tower=true`
-- `high_esg=true`
+- `lambda/generator.py` — Lambda handler that creates `brief.json` and uploads it to S3 (or writes it locally when seeded).
+- `deploy.sh` / `deploy.ps1` — provisioning and packaging scripts (S3 website, IAM role, Lambda, EventBridge schedule).
+- `package_lambda.sh` / `package_lambda.ps1` — package `lambda/` into a deployable zip.
+- `frontend/` — static site that reads `brief.json`.
+- `weatherwrite-sam.yaml` — CloudFormation/SAM template for an alternative deploy path.
 
----
+## Notes
 
-## 🧮 Viability Score Formula
-
-```
-Viability Score =
-  (0.30 × Water Potential normalized 0–100) +
-  (0.30 × Financial ROI normalized 0–100)  +
-  (0.20 × ESG Score 0–100)                 +
-  (0.20 × CV Detection Confidence 0–100)
-```
-
----
-
-## 🗃️ Project Structure
-
-```
-Access Rain-nexus/
-├── backend/
-│   ├── main.py                 # FastAPI server
-│   ├── buildings_data.json     # 100 mock buildings
-│   └── requirements.txt
-├── frontend/
-│   ├── index.html              # Single-page dashboard
-│   ├── css/
-│   │   └── style.css
-│   └── js/
-│       └── app.js
-├── logistics/
-│   ├── main.go                 # Go logistics microservice
-│   └── go.mod
-├── start.sh                    # One-command launcher
-└── README.md
-```
-
----
-
-## ✅ Requirements Checklist
-
-- [x] 100 buildings across continental US states
-- [x] Roof size flagging (≥100,000 sqft)
-- [x] Cooling tower detection (simulated CV)
-- [x] Detection confidence score (0–100)
-- [x] Rainfall data by state
-- [x] Water potential calculation (gal/year)
-- [x] Financial layer (water/sewage cost, savings, ROI)
-- [x] Tax incentive flags by state
-- [x] ESG scores
-- [x] Viability Score Engine (4-component formula)
-- [x] Payback period calculation
-- [x] Interactive map with color-coded markers
-- [x] Popup cards on marker click
-- [x] Filtering by state, roof, viability, cooling, ESG
-- [x] Top 10 opportunities panel
-- [x] Metrics display
-- [x] Insights/tags
-- [x] Hot leads panel
-- [x] Score distribution chart
-- [x] State rankings
-- [x] Full detail drawer per building
-- [x] Go logistics microservice (deployment clustering)
-
-
-## Creating a .env file for API keys - Ethan Rama
-
-- Navigate to ```/backend``` and add the file via ```touch .env``` or by creating the file in VSCode or whatever IDE you are using. Note that you can create an ```.env``` file in any directory where your source code needs to use an API key
-- In the ```.env``` file, put the following: 
-```
-SERP_API_KEY="your-api-key"
-GOOGLE_MAP_API_KEY="your-api-key"
-```
-You can name the constants whatever you like, but the key will follow after.
-- To actually use the API key, the following code is required:
-```
-import os                             # For loading your key from .env
-import serpapi                        # For using SerpAPI
-
-load_dotenv()                         # Loads the .env file in directory
-serp_key = os.getenv("SERP_API_KEY")  # Gets the key without exposing it 
-
-# (Must reference the constant name from the .env file)
-```
-- The reason for using ```.env``` is so others can't access your key. This is important later when you decide to deploy your app to the cloud (Google Cloud, AWS, Azure, Vercel, etc.)
-- I've commented out the code in the ```main.py``` file for using the SerpAPI and Google Maps Places API. SerpAPI is trivial, but Google Maps Places API, you will need to create a billing account in the Google Developer Program and enable the API as it won't allow you to anyway else. Just don't leak your API key and don't run too many requests otherwise Google will likely apply charges for each API call.
-- I've provided all the dependencies needed in the ```requirements.txt``` file including ```os, dotenv, request```. Just follow the instructions above for the setup and you should be fine. You will need to install the ``golang``` language for the logistics part.
+- If IAM propagation/assume-role errors occur during deploy, wait a few seconds and retry — this is normal AWS propagation behavior.

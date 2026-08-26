@@ -1,0 +1,7 @@
+body { font-family: system-ui, Arial; background: linear-gradient(#0f1724,#071026); color: #e6f0ff; margin:0; padding:24px; }
+.wrap { max-width:800px; margin:0 auto; }
+h1 { margin:0 0 8px; font-size:28px }
+.subtitle { color:#9fb6d8; margin:0 0 18px }
+#brief { background: rgba(255,255,255,0.03); padding:18px; border-radius:8px }
+#poem { white-space:pre-wrap; font-family: Georgia, 'Times New Roman', serif; }
+.muted { color:#9fb6d8; font-size:13px }
