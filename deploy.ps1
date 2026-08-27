@@ -1,7 +1,13 @@
 param(
     [string]$BucketName = "weatherwrite-omarf-20260823-7b2c",
     [string]$Region = "us-east-1",
-    [switch]$LocalSeed = $true
+    [switch]$LocalSeed = $true,
+    [string]$LocationName = "Seattle, WA",
+    [string]$Latitude = "47.6062",
+    [string]$Longitude = "-122.3321",
+    [string]$UseBedrock = "1",
+    [string]$BedrockTextModel = "amazon.nova-lite-v1:0",
+    [string]$BedrockImageModel = "amazon.nova-canvas-v1:0"
 )
 
 Set-StrictMode -Version Latest
@@ -69,8 +75,13 @@ try {
 aws s3 website s3://$BucketName/ --index-document index.html --error-document index.html
 
 # 3) Upload frontend
+# (no --acl: modern buckets have ACLs disabled; public read comes from the bucket policy)
 Write-Output "Uploading frontend to s3://$BucketName/"
-aws s3 sync frontend\ s3://$BucketName/ --acl public-read --delete
+aws s3 sync frontend\ s3://$BucketName/ --delete
+
+# Ensure the bucket policy grants public GetObject (idempotent, scoped to this bucket)
+$bucketPolicy = "{`"Version`":`"2012-10-17`",`"Statement`":[{`"Sid`":`"PublicReadGetObject`",`"Effect`":`"Allow`",`"Principal`":`"*`",`"Action`":`"s3:GetObject`",`"Resource`":`"arn:aws:s3:::$BucketName/*`"}]}"
+aws s3api put-bucket-policy --bucket $BucketName --policy $bucketPolicy
 
 # 4) Create IAM role for Lambda
 $trust = @'
@@ -137,6 +148,26 @@ try {
     }
 }
 
+# Keep the inline Bedrock policy up to date whether the role is new or existing
+$bedrockPolicy = @"
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": ["bedrock:InvokeModel"],
+            "Resource": [
+                "arn:aws:bedrock:$($Region)::foundation-model/$BedrockTextModel",
+                "arn:aws:bedrock:$($Region)::foundation-model/$BedrockImageModel"
+            ]
+        }
+    ]
+}
+"@
+$bedrockPolicyFile = Join-Path $env:TEMP 'weatherwrite-bedrockpolicy.json'
+[System.IO.File]::WriteAllText($bedrockPolicyFile, $bedrockPolicy, (New-Object System.Text.UTF8Encoding($false)))
+& aws iam put-role-policy --role-name $roleName --policy-name WeatherWriteBedrockAccess --policy-document ("file://" + $bedrockPolicyFile)
+
 Write-Output "Waiting 10s for IAM propagation..."
 Start-Sleep -Seconds 10
 
@@ -160,10 +191,30 @@ try {
     aws lambda get-function --function-name $lambdaName >/dev/null 2>&1
     Write-Output "Updating Lambda function $lambdaName"
     aws lambda update-function-code --function-name $lambdaName --zip-file fileb://$zip
+    aws lambda wait function-updated --function-name $lambdaName
 } catch {
     Write-Output "Creating Lambda function $lambdaName"
     aws lambda create-function --function-name $lambdaName --runtime python3.11 --role $roleArn --handler generator.handler --zip-file fileb://$zip --timeout 30
+    aws lambda wait function-active --function-name $lambdaName
 }
+
+# 6b) Always (re)apply the environment variables so config can't silently drift
+# (JSON, not the Variables={a=b,c=d} shorthand: values like "Seattle, WA" contain commas)
+Write-Output "Setting Lambda environment variables"
+$envObj = @{
+    Variables = @{
+        BUCKET_NAME = $BucketName
+        LOCATION_NAME = $LocationName
+        LATITUDE = $Latitude
+        LONGITUDE = $Longitude
+        USE_BEDROCK = $UseBedrock
+        BEDROCK_TEXT_MODEL = $BedrockTextModel
+        BEDROCK_IMAGE_MODEL = $BedrockImageModel
+    }
+}
+$envJson = $envObj | ConvertTo-Json -Compress
+aws lambda update-function-configuration --function-name $lambdaName --environment $envJson
+aws lambda wait function-updated --function-name $lambdaName
 
 # 7) Give the Lambda permission to be invoked by EventBridge (ignore errors)
 & aws lambda add-permission --function-name $lambdaName --action lambda:InvokeFunction --principal events.amazonaws.com --statement-id "AllowEventsTrigger" 2>$null
@@ -193,5 +244,6 @@ if ($Region -eq 'us-east-1') {
 Write-Output "Cleanup: removing temporary files"
 Remove-Item -Path $trustFile -ErrorAction SilentlyContinue
 Remove-Item -Path $policyFile -ErrorAction SilentlyContinue
+Remove-Item -Path $bedrockPolicyFile -ErrorAction SilentlyContinue
 Remove-Item -Path $env:TEMP\weatherwrite-invoke.json -ErrorAction SilentlyContinue
 Remove-Item -Path $zip -ErrorAction SilentlyContinue

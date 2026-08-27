@@ -3,17 +3,12 @@
 Project: WeatherWrite — Daily Rain Muse
 
 Summary
-- WeatherWrite produces a short creative brief (copy + image direction + a short poem) every scheduled interval and publishes it as a static `brief.json` that a lightweight static frontend consumes.
-- Architecture: AWS Lambda (Python) generates the brief → writes `brief.json` to S3 (public) → S3 serves a static frontend. Lambda is scheduled via EventBridge (cron/6-hour cadence) so the site is always refreshed.
+- WeatherWrite pulls real weather from Open-Meteo, sends it to Amazon Bedrock (Nova Lite) to write a short original poem + image-direction prompt, optionally sends that prompt to Bedrock (Nova Canvas) for matching artwork, and publishes the result as static `brief.json` / `brief_image.png` files that a lightweight static frontend consumes.
+- Architecture: AWS Lambda (Python) fetches weather → calls Bedrock for text (and optionally image) → writes `brief.json`/`brief_image.png` to S3 (public) → S3 serves a static frontend. Lambda is scheduled via EventBridge (cron/6-hour cadence) so the site is always refreshed.
 
 Why it qualifies
 - Static site on S3 (static frontend included). Lambda function packaged and deployed (zip + IAM role). EventBridge rule schedules Lambda (always-on behavior requirement satisfied).
-- Optional Bedrock integration included: the Lambda can optionally call Bedrock (controlled via `USE_BEDROCK` and `BEDROCK_MODEL`).
-
-What to include in the Builder Center submission
-- This repo, with `frontend/`, `lambda/generator.py`, and `deploy.sh`.
-- A short README with: how to run locally, how to deploy (BUCKET_NAME + region + AWS creds), and how to preview the seeded static site.
-- Notes about Bedrock: enable with env vars and provide model id; the project degrades gracefully when Bedrock is not available.
+- Live Bedrock integration: the Lambda calls Bedrock Nova Lite for text generation on every scheduled run (controlled via `USE_BEDROCK`, `BEDROCK_TEXT_MODEL`, `BEDROCK_IMAGE_MODEL`), and degrades gracefully to a built-in template if a Bedrock call fails for any reason (e.g. a model not being enabled for the account).
 
 Security & operational notes
 - The `deploy.sh` script creates an S3 bucket, IAM role, and Lambda. Review the script before running in a real account.

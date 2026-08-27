@@ -1,13 +1,13 @@
 # WeatherWrite — Daily Rain Muse
 
-WeatherWrite is a minimal always-on creative agent built for the Weekend Creative Agent Challenge. A scheduled AWS Lambda generates a short daily creative brief (copy + image direction + poem) and publishes it as `brief.json`, which a tiny static frontend reads and renders.
+WeatherWrite is a minimal always-on creative agent built for the Weekend Creative Agent Challenge. A scheduled AWS Lambda pulls the current weather for a fixed location, asks Amazon Bedrock (Nova Lite) to write a short poem and image direction from it, and publishes the result as `brief.json` (plus artwork from Nova Canvas, when available), which a tiny static frontend reads and renders.
 
 ## Architecture
 
-- **Lambda** (`lambda/generator.py`) generates the brief and writes `brief.json` — to S3 in production, or to `frontend/brief.json` locally.
-- **S3 static website** serves the frontend and the generated `brief.json`.
+- **Lambda** (`lambda/generator.py`) fetches current weather from [Open-Meteo](https://open-meteo.com/) (no API key needed), asks **Amazon Bedrock Nova Lite** to write a poem + image prompt from it, optionally asks **Amazon Bedrock Nova Canvas** to generate matching artwork, and writes `brief.json` (+ `brief_image.png` if artwork was generated) — to S3 in production, or to `frontend/` locally.
+- **S3 static website** serves the frontend and the generated files.
 - **EventBridge** triggers the Lambda on a schedule (every 6 hours).
-- Optional **Bedrock** integration: set `USE_BEDROCK=1` and `BEDROCK_MODEL=<modelId>` in the Lambda environment to enrich briefs via Bedrock.
+- Bedrock is optional and degrades gracefully: set `USE_BEDROCK=1` (with `BEDROCK_TEXT_MODEL` / `BEDROCK_IMAGE_MODEL`) in the Lambda environment to enable it. If a Bedrock call fails (e.g. a model isn't enabled for your account), the brief falls back to a built-in poem template rather than failing the run — check `text_source` / `image_source` / `has_image` in `brief.json` to see what actually generated each run.
 
 ## Quickstart (local preview, no AWS required)
 
@@ -54,3 +54,4 @@ Alternative deployment path via CloudFormation/SAM (no SAM CLI required) is docu
 ## Notes
 
 - If IAM propagation/assume-role errors occur during deploy, wait a few seconds and retry — this is normal AWS propagation behavior.
+- Bedrock models must be enabled for your account/region (Bedrock console → Model access) before `USE_BEDROCK=1` will actually call them; until then, or if a call fails for any reason, the brief silently falls back to the built-in template.
