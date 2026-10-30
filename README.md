@@ -1,5 +1,7 @@
 # WeatherWrite — Daily Rain Muse
 
+**Live demo:** https://rain-muse-weatherwrite.vercel.app *(static snapshot of the last generated brief — the scheduled Lambda isn't running continuously in this deploy, so it won't refresh live)*
+
 WeatherWrite is a minimal always-on creative agent built for the Weekend Creative Agent Challenge. A scheduled AWS Lambda pulls the current weather for a fixed location, asks Amazon Bedrock (Nova Lite) to write a short poem and image direction from it, and publishes the result as `brief.json` (plus artwork from Nova Canvas, when available), which a tiny static frontend reads and renders.
 
 ## Architecture
