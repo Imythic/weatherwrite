@@ -1,28 +1,68 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>WeatherWrite — Daily Rain Muse</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
   </head>
   <body>
+    <div class="sky" id="sky" aria-hidden="true">
+      <div class="sky-glow"></div>
+      <div class="clouds">
+        <span class="cloud c1"></span>
+        <span class="cloud c2"></span>
+        <span class="cloud c3"></span>
+      </div>
+      <div class="rain" id="rain"></div>
+      <div class="sun" id="sun"></div>
+      <div class="stars" id="stars"></div>
+    </div>
+
     <main class="wrap">
-      <header>
-        <h1>WeatherWrite — Daily Rain Muse</h1>
-        <p class="subtitle">An always-on creative brief generated for you</p>
+      <header class="masthead">
+        <p class="eyebrow">An always-on creative agent</p>
+        <h1>WeatherWrite</h1>
+        <p class="tagline">Daily Rain Muse — weather, turned into verse.</p>
       </header>
 
-      <article id="brief">
-        <h2 id="headline">Loading…</h2>
-        <img id="artwork" alt="Generated artwork for today's brief" hidden />
-        <pre id="poem"></pre>
-        <p id="prompt"></p>
-        <p id="weather" class="muted"></p>
-        <p id="generated_at" class="muted"></p>
-      </article>
+      <section class="brief-card" id="brief">
+        <div class="brief-top">
+          <div class="weather-chip" id="weatherChip">
+            <span class="weather-icon" id="weatherIcon">⛅</span>
+            <div class="weather-text">
+              <span class="weather-temp" id="weatherTemp">—</span>
+              <span class="weather-cond" id="weatherCond">Loading…</span>
+            </div>
+          </div>
+          <span class="weather-location" id="weatherLocation"></span>
+        </div>
 
+        <h2 id="headline">Loading today's muse…</h2>
+
+        <div class="artwork-frame" id="artworkFrame">
+          <img id="artwork" alt="Generated artwork for today's brief" hidden>
+          <div class="artwork-fallback" id="artworkFallback" hidden>
+            <span class="fallback-mark">✎</span>
+          </div>
+        </div>
+
+        <div class="poem" id="poem"></div>
+
+        <p class="prompt" id="prompt"></p>
+
+        <footer class="brief-meta">
+          <span class="meta-pill" id="metaSource"></span>
+          <span class="meta-pill" id="metaGenerated"></span>
+        </footer>
+      </section>
+
+      <p class="footnote">Refreshed automatically every few hours via a scheduled job that reads live weather and writes a new brief.</p>
     </main>
+
     <script src="js/app.js"></script>
   </body>
 </html>
